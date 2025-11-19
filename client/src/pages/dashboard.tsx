@@ -21,12 +21,37 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { MOCK_CONTACTS, MOCK_NUDGES, RECENT_SEARCHES } from "@/lib/mock-data";
+import { useQuery, useMutation } from "@tanstack/react-query";
+import { type Contact, type Nudge } from "@shared/schema";
 import { motion } from "framer-motion";
 import { cn } from "@/lib/utils";
+import { apiRequest, queryClient } from "@/lib/queryClient";
+import { useToast } from "@/hooks/use-toast";
 
 export default function Dashboard() {
   const [searchQuery, setSearchQuery] = useState("");
+  const { toast } = useToast();
+
+  const { data: contacts, isLoading: contactsLoading } = useQuery<Contact[]>({ 
+    queryKey: ["/api/contacts"] 
+  });
+
+  const { data: nudges, isLoading: nudgesLoading } = useQuery<Nudge[]>({ 
+    queryKey: ["/api/nudges"] 
+  });
+
+  const dismissNudgeMutation = useMutation({
+    mutationFn: async (id: number) => {
+      await apiRequest("PATCH", `/api/nudges/${id}/status`, { status: "dismissed" });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/nudges"] });
+      toast({
+        title: "Nudge dismissed",
+        description: "We won't show this nudge again.",
+      });
+    },
+  });
 
   const getInitials = (name: string) => {
     return name
@@ -42,11 +67,23 @@ export default function Dashboard() {
     return "bg-red-400";
   };
 
-  const filteredContacts = MOCK_CONTACTS.filter(c => 
+  // Filter contacts client-side for instant search feel
+  // In a real app with thousands of contacts, this would be server-side
+  const filteredContacts = contacts?.filter(c => 
     c.name.toLowerCase().includes(searchQuery.toLowerCase()) || 
     c.role.toLowerCase().includes(searchQuery.toLowerCase()) ||
     c.company.toLowerCase().includes(searchQuery.toLowerCase())
-  );
+  ) || [];
+
+  // Filter active nudges
+  const activeNudges = nudges?.filter(n => n.status === 'pending') || [];
+
+  // Recent searches mock for now
+  const recentSearches = [
+    "Healthtech founders in SF",
+    "Investors interested in AI agents",
+    "Design leaders in NYC",
+  ];
 
   return (
     <div className="min-h-screen bg-[#FAF9F6] flex">
@@ -79,7 +116,7 @@ export default function Dashboard() {
           <div className="mt-8">
             <h4 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-3 px-2">Recent Searches</h4>
             <div className="space-y-1">
-              {RECENT_SEARCHES.slice(0, 3).map((search, i) => (
+              {recentSearches.map((search, i) => (
                 <button key={i} className="text-sm text-muted-foreground hover:text-foreground block px-2 py-1.5 truncate w-full text-left rounded-md hover:bg-black/5 transition-colors">
                   {search}
                 </button>
@@ -137,53 +174,68 @@ export default function Dashboard() {
               <span className="text-sm text-muted-foreground">{new Date().toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' })}</span>
             </div>
             
-            <div className="grid md:grid-cols-3 gap-4">
-              {MOCK_NUDGES.map((nudge) => {
-                const contact = MOCK_CONTACTS.find(c => c.id === nudge.contactId);
-                if (!contact) return null;
-                
-                return (
-                  <motion.div
-                    key={nudge.id}
-                    initial={{ opacity: 0, y: 10 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    whileHover={{ y: -2 }}
-                    className="group"
-                  >
-                    <Card className="h-full border-border/60 shadow-sm hover:shadow-md transition-all bg-white">
-                      <CardHeader className="pb-3">
-                        <div className="flex justify-between items-start">
-                          <div className="flex items-center gap-3">
-                            <Avatar className="h-10 w-10 border border-border/50">
-                              <AvatarFallback className="bg-secondary text-secondary-foreground font-medium">{getInitials(contact.name)}</AvatarFallback>
-                            </Avatar>
-                            <div>
-                              <CardTitle className="text-base font-medium">{contact.name}</CardTitle>
-                              <CardDescription className="text-xs">{contact.role} @ {contact.company}</CardDescription>
+            {nudgesLoading ? (
+              <div className="grid md:grid-cols-3 gap-4">
+                {[1, 2, 3].map((i) => (
+                  <div key={i} className="h-32 bg-muted/20 animate-pulse rounded-lg" />
+                ))}
+              </div>
+            ) : (
+              <div className="grid md:grid-cols-3 gap-4">
+                {activeNudges.map((nudge) => {
+                  const contact = contacts?.find(c => c.id === nudge.contactId);
+                  if (!contact) return null;
+                  
+                  return (
+                    <motion.div
+                      key={nudge.id}
+                      initial={{ opacity: 0, y: 10 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      whileHover={{ y: -2 }}
+                      className="group"
+                    >
+                      <Card className="h-full border-border/60 shadow-sm hover:shadow-md transition-all bg-white">
+                        <CardHeader className="pb-3">
+                          <div className="flex justify-between items-start">
+                            <div className="flex items-center gap-3">
+                              <Avatar className="h-10 w-10 border border-border/50">
+                                <AvatarFallback className="bg-secondary text-secondary-foreground font-medium">{getInitials(contact.name)}</AvatarFallback>
+                              </Avatar>
+                              <div>
+                                <CardTitle className="text-base font-medium">{contact.name}</CardTitle>
+                                <CardDescription className="text-xs">{contact.role} @ {contact.company}</CardDescription>
+                              </div>
                             </div>
+                            <Badge variant="outline" className={cn(
+                              "text-[10px] uppercase tracking-wide font-semibold",
+                              nudge.priority === 'high' ? "border-red-200 bg-red-50 text-red-700" : "border-blue-200 bg-blue-50 text-blue-700"
+                            )}>
+                              {nudge.type}
+                            </Badge>
                           </div>
-                          <Badge variant="outline" className={cn(
-                            "text-[10px] uppercase tracking-wide font-semibold",
-                            nudge.priority === 'high' ? "border-red-200 bg-red-50 text-red-700" : "border-blue-200 bg-blue-50 text-blue-700"
-                          )}>
-                            {nudge.type}
-                          </Badge>
-                        </div>
-                      </CardHeader>
-                      <CardContent>
-                        <p className="text-sm text-muted-foreground mb-4 leading-relaxed">
-                          {nudge.message}
-                        </p>
-                        <div className="flex gap-2 opacity-80 group-hover:opacity-100 transition-opacity">
-                          <Button size="sm" variant="outline" className="w-full text-xs h-8">Dismiss</Button>
-                          <Button size="sm" className="w-full text-xs h-8 bg-primary/10 text-primary hover:bg-primary/20 border-primary/20">Action</Button>
-                        </div>
-                      </CardContent>
-                    </Card>
-                  </motion.div>
-                );
-              })}
-            </div>
+                        </CardHeader>
+                        <CardContent>
+                          <p className="text-sm text-muted-foreground mb-4 leading-relaxed">
+                            {nudge.message}
+                          </p>
+                          <div className="flex gap-2 opacity-80 group-hover:opacity-100 transition-opacity">
+                            <Button 
+                              size="sm" 
+                              variant="outline" 
+                              className="w-full text-xs h-8"
+                              onClick={() => dismissNudgeMutation.mutate(nudge.id)}
+                            >
+                              Dismiss
+                            </Button>
+                            <Button size="sm" className="w-full text-xs h-8 bg-primary/10 text-primary hover:bg-primary/20 border-primary/20">Action</Button>
+                          </div>
+                        </CardContent>
+                      </Card>
+                    </motion.div>
+                  );
+                })}
+              </div>
+            )}
           </section>
 
           {/* Main Content Tabs */}
@@ -218,7 +270,9 @@ export default function Dashboard() {
                 </div>
                 
                 <div className="divide-y divide-border/40">
-                  {filteredContacts.map((contact) => (
+                  {contactsLoading ? (
+                    <div className="p-8 text-center text-muted-foreground">Loading contacts...</div>
+                  ) : filteredContacts.map((contact) => (
                     <div key={contact.id} className="p-4 flex items-center justify-between hover:bg-muted/30 transition-colors group">
                       <div className="flex items-center gap-4">
                         <div className="relative">
@@ -240,7 +294,9 @@ export default function Dashboard() {
                       <div className="flex items-center gap-6">
                         <div className="hidden md:block text-right">
                           <p className="text-xs text-muted-foreground">Last spoken</p>
-                          <p className="text-sm font-medium">{contact.lastInteraction}</p>
+                          <p className="text-sm font-medium">
+                            {contact.lastInteraction ? new Date(contact.lastInteraction).toLocaleDateString() : 'Never'}
+                          </p>
                         </div>
                         
                         <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
