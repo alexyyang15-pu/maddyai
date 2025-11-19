@@ -1,0 +1,380 @@
+# **Product Requirements Document (PRD)**
+
+## **Product Name:** Maddy AI
+
+## **Version:** 0.2
+
+## **Owner:** Product / Founders
+
+## **Document Status:** Draft
+
+---
+
+# **1. Overview**
+
+## **1.1 Product Summary**
+
+Maddy AI is a relationship-intelligence OS for founders, investors, operators, and community builders who manage large, chaotic networks but lack tools to keep relationships warm. Unlike Happenstance or traditional CRMs, Maddy AI is not a people-search engine — it is a **personal relationship assistant** that centralizes contacts, enriches them, tracks warmth, and enables agentic workflows for follow-ups, introductions, and contextual outreach.
+
+The system combines contact ingestion, AI enrichment, natural-language search, relationship scoring, and proactive nudges to help users maintain meaningful relationships at scale.
+
+---
+
+# **2. Problem Statement**
+
+Super-connectors frequently experience:
+
+* Contacts scattered across Gmail, LinkedIn, calendars, social platforms, spreadsheets, and notes
+* Poor recall of who’s important, who they met recently, and who needs a follow-up
+* Difficulty identifying who to meet when traveling or attending conferences
+* Missed opportunities for intros or collaboration
+* Manual, repetitive outreach workflows
+* Tools that feel transactional or CRM-ish rather than personal and warm
+
+Maddy AI solves these by becoming the “second brain” for a user’s network.
+
+---
+
+# **3. Goals & Non-Goals**
+
+## **3.1 Goals**
+
+* Consolidate the user’s entire network into one enriched, deduped system
+* Make all contacts queryable using natural language
+* Provide warm, tailored nudges to maintain relationships
+* Suggest relevant intros, follow-ups, meeting opportunities, and co-investors
+* Build agentic workflows to draft communications and manage orchestrated outreach
+* Feel personal, human, and supportive — not spammy
+
+## **3.2 Non-Goals**
+
+* Becoming a public social network
+* Fully automated sending of emails/DMs without user approval
+* High-pressure sales or CRM features
+* Ranking people by clout or social metrics
+
+---
+
+# **4. User Personas**
+
+## **4.1 Primary: The Super-Connector Investor (“Chanmeet”)**
+
+* Meets dozens of people weekly
+* Travels frequently
+* Needs consistent follow-ups and networking prep
+* Wants scalable warmth, not spam
+
+## **4.2 Secondary: Founders / Operators**
+
+* Hiring, fundraising, BD
+* Need organized awareness of their network
+* Want fast recall of who to contact
+
+## **4.3 Secondary: Creators / Community Builders**
+
+* Run events or communities
+* Need connection intelligence and warm intros
+
+---
+
+# **5. Key Use Cases**
+
+1. **Post-event follow-up workflow**
+   “Who did I meet today and who should I follow up with?”
+2. **Travel-based networking suggestions**
+   “I’m in NYC next week — who should I grab coffee with?”
+3. **Deal collaboration**
+   “Who are good co-investors I know for a pre-seed fintech round?”
+4. **Warmth maintenance**
+   “Notify me when 60 days go by with no interaction with a top contact.”
+5. **Contextual message drafting**
+   “Draft a follow-up email to this person summarizing our meeting.”
+
+---
+
+# **6. Core Features**
+
+## **6.1 Unified Contact Ingestion (Updated)**
+
+### **6.1.1 Gmail Ingestion**
+
+#### **Approach Overview**
+
+Use official **Google Identity Services** with OAuth2 to ingest contacts, interaction metadata, and email signatures.
+
+#### **Scopes Required**
+
+* `gmail.readonly`
+* `userinfo.email` (optional)
+* `userinfo.profile` (optional)
+
+#### **Data Extracted**
+
+* **Email headers** (From/To/CC) → primary contact discovery
+* **Timestamped conversation history** → warmth engine input
+* **Signature block parsing** → titles, companies, social links
+* **Thread-level metadata** → counting replies, size, recency
+* **Meeting detection** from email context (if user opts in)
+
+#### **Processing**
+
+* Normalize all extracted emails into a **Unified Contact Profile**
+* Deduplicate using:
+
+  * Exact address
+  * Name similarity
+  * Company/domain context
+* Summarize recent email bodies into embeddings without storing raw text
+* Generate relationship embeddings (“context vectors”)
+
+#### **Privacy**
+
+* Raw email bodies **never stored** unless user explicitly toggles on
+* Full deletion possible at any time
+
+---
+
+### **6.1.2 LinkedIn Ingestion**
+
+#### **Overview**
+
+Due to LinkedIn API restrictions, ingestion is built as a **multi-tier strategy**.
+
+### **Tier 1 (MVP): User-Uploaded LinkedIn Export**
+
+Users upload their official LinkedIn data export (CSV/JSON).
+Provides:
+
+* Full list of 1st-degree connections
+* Roles, companies, education
+* Profile metadata
+
+**Processing Steps:**
+
+* Parse “Connections.csv” → contact list
+* Parse “Profile.json” → work/education timeline
+* Enrich contacts via embeddings (expertise, industry, seniority)
+* Match LinkedIn contacts to Gmail contacts via fuzzy matching
+
+### **Tier 2: Chrome Extension (Midterm)**
+
+For user-initiated profile capture:
+
+* On profile page → user clicks “Add to Maddy”
+* Extension extracts structured fields:
+
+  * Name
+  * Headline
+  * Experience list
+  * Location
+  * Summary/About text
+* User permission required for each capture
+
+### **Tier 3: Official LinkedIn API Partner Access (Long-Term)**
+
+* Would allow live syncing of connections
+* Requires LinkedIn partnership
+* 6–12 month horizon
+
+---
+
+### **6.2 AI Enrichment**
+
+* Auto-detect job roles, industries, seniority, investment stage, geographic relevance
+* Create confidence scores for each dimension
+* Build semantic vectors for:
+
+  * Expertise
+  * Relationship strength
+  * Shared relevance to user’s goals
+
+---
+
+### **6.3 Natural Language Search**
+
+Query examples:
+
+* “Show me all healthtech founders in SF I haven’t spoken to since July.”
+* “Find my strongest connectors in AI.”
+* “Who should I meet at Consensus next month?”
+
+Search supports:
+
+* Filtering
+* Ranking by warmth
+* Relevance scoring
+* Custom user preferences (“always prioritize early-stage investors”)
+
+---
+
+### **6.4 Warmth Engine + Nudges**
+
+Triggers include:
+
+* Time-based decay (30/60/90 days)
+* Contact role changes (new job → congratulate?)
+* Contact location + user travel coincidence
+* Recent email silence after meetings
+* Contact anniversaries or milestones
+
+Modal examples:
+
+* “It’s been 45 days since you last spoke with Maya — keep warm?”
+* “Alex just became a Partner at XYZ — draft congrats?”
+
+---
+
+### **6.5 Priority Modeling**
+
+Signals include:
+
+* Messaging frequency
+* Email depth/recurrence
+* User manually pinning or marking important
+* User queries
+* Past successful intros
+
+Model output:
+
+* Priority index (0–100)
+* “Top Circle” automated suggestions
+
+---
+
+### **6.6 Agentic Workflows**
+
+Workflows are always **user-approved**, not auto-sent.
+
+Examples:
+
+* Draft follow-up emails after events
+* Draft LinkedIn connection requests
+* Suggest intros + write intro emails
+* Prepare “people to meet” lists before travel
+* Generate group intro scripts
+
+---
+
+### **6.7 Event & Conference Mode**
+
+If user imports calendar or emails:
+
+* Extract attendee names
+* Identify new connections
+* Produce prioritized follow-up list
+* Draft emails in bulk with contextual summaries
+
+---
+
+# **7. UX / UI Principles**
+
+* Soft, warm, assistant-like tone
+* Search bar as primary entry point
+* Profiles feel personal, not like CRM records
+* Nudges and reminders feel supportive
+* Minimalist workspace with powerful internal intelligence
+
+---
+
+# **8. Technical Requirements**
+
+## **8.1 Backend**
+
+* Microservice architecture:
+
+  * Ingestion service
+  * Deduplication engine
+  * Enrichment engine
+  * Search + vector DB
+  * Nudge engine
+* Secure OAuth token vault
+* Relational DB for structured data
+* Vector store for embeddings
+
+## **8.2 AI Components**
+
+* NLP for signature parsing
+* Summarizers for emails
+* Retrieval chain for search
+* Vetor embeddings for contact similarity
+* Warmth scoring model
+* Intent classification for NL queries
+
+## **8.3 Security**
+
+* Encrypted at rest + in transit
+* OAuth-based integrations only
+* Limited retention of message text
+* GDPR-compliant deletion flows
+
+---
+
+# **9. Success Metrics**
+
+### **Activation**
+
+* % of users connecting Gmail
+* % of users importing LinkedIn
+
+### **Usage**
+
+* Weekly active searches
+* # of nudges acted on
+* # of suggested follow-ups completed
+
+### **Network Health**
+
+* Reduction in forgotten contacts
+* Increase in warm interactions
+* Frequency of successful intros
+
+### **Retention**
+
+* 60-day retention of high-volume users
+* Growth of enriched contact graph over time
+
+---
+
+# **10. Future Extensions**
+
+* Voice note ingestion
+* Calendar-based relationship mapping
+* Auto-tagging by themes (AI, crypto, climate, etc.)
+* Team view (shared contact intelligence)
+* Automatic conference prep packets
+
+---
+
+# **11. Open Questions**
+
+* How aggressive should nudges be by default?
+* Should users manually classify contact tiers or rely on AI first?
+* How to surface important-but-quiet contacts without noise?
+* Best UI for large enriched profiles?
+
+---
+
+# **12. MVP Scope**
+
+### **Included**
+
+* Gmail ingestion (metadata + signatures, no raw bodies)
+* LinkedIn export ingestion
+* Deduped unified profiles
+* Search (NL + filters)
+* Warmth scoring
+* Follow-up drafting
+* Basic nudges
+
+### **Excluded**
+
+* Chrome extension
+* Auto-sending communications
+* Full LinkedIn API partnership
+* Team/shared networks
+
+---
+
+# **Conclusion**
+
+Maddy AI is a warm, intelligent personal relationship OS designed to help super-connectors maintain meaningful networks at scale. It consolidates contacts, enriches their profiles, predicts who matters most, and empowers users to follow up, reconnect, or introduce people with ease — without resorting to transactionality or spam.
