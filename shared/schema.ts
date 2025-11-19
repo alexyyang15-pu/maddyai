@@ -11,10 +11,16 @@ export const contacts = pgTable("contacts", {
   email: text("email").notNull(),
   avatar: text("avatar"),
   warmthScore: integer("warmth_score").default(0).notNull(),
+  priorityScore: integer("priority_score").default(0).notNull(),
   lastInteraction: timestamp("last_interaction"),
   nextFollowUp: timestamp("next_follow_up"),
   tags: text("tags").array().default([]),
   notes: text("notes"),
+  // New fields
+  category: text("category"), // Investor, Founder, Advisor, Collaborator
+  industry: text("industry"), // HealthTech, AI/ML, etc
+  interests: text("interests").array().default([]),
+  expertise: text("expertise").array().default([]),
 });
 
 export const nudges = pgTable("nudges", {

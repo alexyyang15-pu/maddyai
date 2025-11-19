@@ -8,11 +8,20 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Seed mock data on startup
   await storage.seed();
 
+  // Stats API
+  app.get("/api/stats", async (req, res) => {
+    const stats = await storage.getStats();
+    res.json(stats);
+  });
+
   // Contacts API
   app.get("/api/contacts", async (req, res) => {
     const query = req.query.q as string;
-    if (query) {
-      const results = await storage.searchContacts(query);
+    const category = req.query.category as string;
+    const industry = req.query.industry as string;
+
+    if (query || category || industry) {
+      const results = await storage.getContacts({ query, category, industry });
       res.json(results);
     } else {
       const contacts = await storage.getContacts();

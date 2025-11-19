@@ -1,4 +1,5 @@
 import React, { useState } from "react";
+import { Link } from "wouter";
 import { 
   Search, 
   Bell, 
@@ -12,7 +13,11 @@ import {
   Clock,
   Briefcase,
   UserPlus,
-  Users
+  Users,
+  Flame,
+  TrendingUp,
+  AlertCircle,
+  ChevronDown
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -21,23 +26,40 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, DropdownMenuCheckboxItem } from "@/components/ui/dropdown-menu";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { type Contact, type Nudge } from "@shared/schema";
 import { motion } from "framer-motion";
 import { cn } from "@/lib/utils";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
+import { getWarmthStatus } from "@shared/warmth-engine";
 
 export default function Dashboard() {
   const [searchQuery, setSearchQuery] = useState("");
+  const [categoryFilter, setCategoryFilter] = useState<string | null>(null);
+  const [industryFilter, setIndustryFilter] = useState<string | null>(null);
   const { toast } = useToast();
 
   const { data: contacts, isLoading: contactsLoading } = useQuery<Contact[]>({ 
-    queryKey: ["/api/contacts"] 
+    queryKey: ["/api/contacts", searchQuery, categoryFilter, industryFilter],
+    queryFn: () => {
+      const params = new URLSearchParams();
+      if (searchQuery) params.append("q", searchQuery);
+      if (categoryFilter) params.append("category", categoryFilter);
+      if (industryFilter) params.append("industry", industryFilter);
+      return fetch(`/api/contacts?${params}`).then(res => res.json());
+    }
   });
 
-  const { data: nudges, isLoading: nudgesLoading } = useQuery<Nudge[]>({ 
-    queryKey: ["/api/nudges"] 
+  const { data: stats } = useQuery({
+    queryKey: ["/api/stats"],
+    queryFn: () => fetch("/api/stats").then(res => res.json())
+  });
+
+  const { data: nudges, isLoading: nudgesLoading } = useQuery<(Nudge & { contact: Contact })[]>({ 
+    queryKey: ["/api/nudges"],
+    queryFn: () => fetch("/api/nudges").then(res => res.json())
   });
 
   const dismissNudgeMutation = useMutation({
@@ -62,28 +84,13 @@ export default function Dashboard() {
   };
 
   const getWarmthColor = (score: number) => {
-    if (score >= 80) return "bg-green-500";
-    if (score >= 50) return "bg-yellow-500";
-    return "bg-red-400";
+    if (score >= 85) return "bg-green-500 shadow-[0_0_10px_rgba(34,197,94,0.4)]";
+    if (score >= 50) return "bg-yellow-500 shadow-[0_0_10px_rgba(234,179,8,0.4)]";
+    return "bg-red-400 shadow-[0_0_10px_rgba(248,113,113,0.4)]";
   };
-
-  // Filter contacts client-side for instant search feel
-  // In a real app with thousands of contacts, this would be server-side
-  const filteredContacts = contacts?.filter(c => 
-    c.name.toLowerCase().includes(searchQuery.toLowerCase()) || 
-    c.role.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    c.company.toLowerCase().includes(searchQuery.toLowerCase())
-  ) || [];
 
   // Filter active nudges
   const activeNudges = nudges?.filter(n => n.status === 'pending') || [];
-
-  // Recent searches mock for now
-  const recentSearches = [
-    "Healthtech founders in SF",
-    "Investors interested in AI agents",
-    "Design leaders in NYC",
-  ];
 
   return (
     <div className="min-h-screen bg-[#FAF9F6] flex">
@@ -114,11 +121,20 @@ export default function Dashboard() {
           </div>
 
           <div className="mt-8">
-            <h4 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-3 px-2">Recent Searches</h4>
-            <div className="space-y-1">
-              {recentSearches.map((search, i) => (
-                <button key={i} className="text-sm text-muted-foreground hover:text-foreground block px-2 py-1.5 truncate w-full text-left rounded-md hover:bg-black/5 transition-colors">
-                  {search}
+            <h4 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-3 px-2">Quick Filters</h4>
+            <div className="space-y-1 mt-2">
+              {['HealthTech', 'AI/ML', 'Venture Capital'].map((filter) => (
+                <button 
+                  key={filter}
+                  onClick={() => setIndustryFilter(industryFilter === filter ? null : filter)}
+                  className={cn(
+                    "text-sm px-2 py-1.5 w-full text-left rounded-md transition-colors",
+                    industryFilter === filter 
+                      ? "bg-primary/10 text-primary font-medium" 
+                      : "text-muted-foreground hover:text-foreground hover:bg-black/5"
+                  )}
+                >
+                  {filter}
                 </button>
               ))}
             </div>
@@ -165,11 +181,47 @@ export default function Dashboard() {
           </div>
         </header>
 
-        <div className="p-6 md:p-8 max-w-6xl mx-auto space-y-10">
+        <div className="p-6 md:p-8 max-w-6xl mx-auto space-y-8">
           
+          {/* Stats Overview */}
+          {stats && (
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+              <Card className="bg-white/50 border-border/40 shadow-sm">
+                <CardContent className="p-6">
+                  <div className="text-sm text-muted-foreground font-medium mb-1">Total Network</div>
+                  <div className="text-3xl font-serif font-medium">{stats.totalContacts}</div>
+                </CardContent>
+              </Card>
+              <Card className="bg-white/50 border-border/40 shadow-sm">
+                <CardContent className="p-6">
+                  <div className="text-sm text-muted-foreground font-medium mb-1">Interactions (Mo)</div>
+                  <div className="text-3xl font-serif font-medium flex items-center gap-2">
+                    {stats.thisMonthContacts}
+                    <TrendingUp className="w-4 h-4 text-green-600" />
+                  </div>
+                </CardContent>
+              </Card>
+              <Card className="bg-white/50 border-border/40 shadow-sm">
+                <CardContent className="p-6">
+                  <div className="text-sm text-muted-foreground font-medium mb-1">Top Priority</div>
+                  <div className="text-3xl font-serif font-medium text-primary">{stats.topPriorityCount}</div>
+                </CardContent>
+              </Card>
+              <Card className="bg-white/50 border-border/40 shadow-sm">
+                <CardContent className="p-6">
+                  <div className="text-sm text-muted-foreground font-medium mb-1">Needs Warmth</div>
+                  <div className="text-3xl font-serif font-medium text-orange-600 flex items-center gap-2">
+                    {stats.needsWarmthCount}
+                    <Flame className="w-4 h-4" />
+                  </div>
+                </CardContent>
+              </Card>
+            </div>
+          )}
+
           {/* Nudges Section */}
           <section>
-            <div className="flex items-center justify-between mb-6">
+            <div className="flex items-center justify-between mb-4">
               <h2 className="font-serif text-2xl font-medium text-foreground">Morning Nudges</h2>
               <span className="text-sm text-muted-foreground">{new Date().toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' })}</span>
             </div>
@@ -183,7 +235,7 @@ export default function Dashboard() {
             ) : (
               <div className="grid md:grid-cols-3 gap-4">
                 {activeNudges.map((nudge) => {
-                  const contact = contacts?.find(c => c.id === nudge.contactId);
+                  const contact = nudge.contact;
                   if (!contact) return null;
                   
                   return (
@@ -194,8 +246,11 @@ export default function Dashboard() {
                       whileHover={{ y: -2 }}
                       className="group"
                     >
-                      <Card className="h-full border-border/60 shadow-sm hover:shadow-md transition-all bg-white">
-                        <CardHeader className="pb-3">
+                      <Card className="h-full border-border/60 shadow-sm hover:shadow-md transition-all bg-white relative overflow-hidden">
+                        {nudge.priority === 'high' && (
+                          <div className="absolute top-0 left-0 w-1 h-full bg-red-500" />
+                        )}
+                        <CardHeader className="pb-3 pl-5">
                           <div className="flex justify-between items-start">
                             <div className="flex items-center gap-3">
                               <Avatar className="h-10 w-10 border border-border/50">
@@ -214,7 +269,7 @@ export default function Dashboard() {
                             </Badge>
                           </div>
                         </CardHeader>
-                        <CardContent>
+                        <CardContent className="pl-5">
                           <p className="text-sm text-muted-foreground mb-4 leading-relaxed">
                             {nudge.message}
                           </p>
@@ -225,9 +280,9 @@ export default function Dashboard() {
                               className="w-full text-xs h-8"
                               onClick={() => dismissNudgeMutation.mutate(nudge.id)}
                             >
-                              Dismiss
+                              Later
                             </Button>
-                            <Button size="sm" className="w-full text-xs h-8 bg-primary/10 text-primary hover:bg-primary/20 border-primary/20">Action</Button>
+                            <Button size="sm" className="w-full text-xs h-8 bg-primary/10 text-primary hover:bg-primary/20 border-primary/20">Draft Email</Button>
                           </div>
                         </CardContent>
                       </Card>
@@ -259,59 +314,90 @@ export default function Dashboard() {
               <Card className="border-border/60 shadow-sm bg-white">
                 <div className="p-4 flex items-center justify-between border-b border-border/40">
                   <div className="flex items-center gap-2">
-                    <Button variant="outline" size="sm" className="h-8 gap-2">
-                      <Filter className="w-3 h-3" /> Filter
-                    </Button>
+                    <DropdownMenu>
+                      <DropdownMenuTrigger asChild>
+                        <Button variant="outline" size="sm" className="h-8 gap-2">
+                          <Filter className="w-3 h-3" /> 
+                          {categoryFilter || "Role"} 
+                          <ChevronDown className="w-3 h-3 opacity-50" />
+                        </Button>
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent align="start">
+                        {['Investor', 'Founder', 'Advisor', 'Collaborator'].map(cat => (
+                          <DropdownMenuCheckboxItem 
+                            key={cat}
+                            checked={categoryFilter === cat}
+                            onCheckedChange={(checked) => setCategoryFilter(checked ? cat : null)}
+                          >
+                            {cat}
+                          </DropdownMenuCheckboxItem>
+                        ))}
+                      </DropdownMenuContent>
+                    </DropdownMenu>
+                    
                     <Button variant="outline" size="sm" className="h-8 gap-2">
                       Sort by: <span className="font-medium text-foreground">Warmth</span>
                     </Button>
                   </div>
-                  <span className="text-xs text-muted-foreground">{filteredContacts.length} contacts found</span>
+                  <span className="text-xs text-muted-foreground">{contacts?.length || 0} contacts found</span>
                 </div>
                 
                 <div className="divide-y divide-border/40">
                   {contactsLoading ? (
                     <div className="p-8 text-center text-muted-foreground">Loading contacts...</div>
-                  ) : filteredContacts.map((contact) => (
-                    <div key={contact.id} className="p-4 flex items-center justify-between hover:bg-muted/30 transition-colors group">
-                      <div className="flex items-center gap-4">
-                        <div className="relative">
-                          <Avatar className="h-12 w-12 border border-border">
-                            <AvatarFallback className="text-sm bg-muted text-muted-foreground">{getInitials(contact.name)}</AvatarFallback>
-                          </Avatar>
-                          <div className={cn("absolute bottom-0 right-0 w-3 h-3 rounded-full border-2 border-white", getWarmthColor(contact.warmthScore))} />
+                  ) : contacts?.map((contact) => (
+                    <Link href={`/contacts/${contact.id}`} key={contact.id}>
+                      <div className="p-4 flex items-center justify-between hover:bg-muted/30 transition-colors group cursor-pointer">
+                        <div className="flex items-center gap-4">
+                          <div className="relative">
+                            <Avatar className="h-12 w-12 border border-border">
+                              <AvatarFallback className="text-sm bg-muted text-muted-foreground">{getInitials(contact.name)}</AvatarFallback>
+                            </Avatar>
+                            <div className={cn("absolute -bottom-1 -right-1 w-4 h-4 rounded-full border-2 border-white flex items-center justify-center", getWarmthColor(contact.warmthScore))}>
+                              {contact.priorityScore > 80 && <div className="w-1.5 h-1.5 bg-white rounded-full" />}
+                            </div>
+                          </div>
+                          
+                          <div>
+                            <h3 className="font-medium text-foreground flex items-center gap-2">
+                              {contact.name}
+                              <span className="text-xs font-normal text-muted-foreground">• {contact.location}</span>
+                            </h3>
+                            <p className="text-sm text-muted-foreground">{contact.role} at <span className="text-foreground/80">{contact.company}</span></p>
+                            <div className="flex gap-2 mt-1">
+                              {contact.industry && (
+                                <Badge variant="secondary" className="text-[10px] h-5 px-1.5 font-normal bg-secondary/50 text-secondary-foreground border-secondary-foreground/10">
+                                  {contact.industry}
+                                </Badge>
+                              )}
+                            </div>
+                          </div>
                         </div>
-                        
-                        <div>
-                          <h3 className="font-medium text-foreground flex items-center gap-2">
-                            {contact.name}
-                            <span className="text-xs font-normal text-muted-foreground">• {contact.location}</span>
-                          </h3>
-                          <p className="text-sm text-muted-foreground">{contact.role} at <span className="text-foreground/80">{contact.company}</span></p>
-                        </div>
-                      </div>
 
-                      <div className="flex items-center gap-6">
-                        <div className="hidden md:block text-right">
-                          <p className="text-xs text-muted-foreground">Last spoken</p>
-                          <p className="text-sm font-medium">
-                            {contact.lastInteraction ? new Date(contact.lastInteraction).toLocaleDateString() : 'Never'}
-                          </p>
-                        </div>
-                        
-                        <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                          <Button size="icon" variant="ghost" className="h-8 w-8 text-muted-foreground hover:text-primary">
-                            <Mail className="w-4 h-4" />
-                          </Button>
-                          <Button size="icon" variant="ghost" className="h-8 w-8 text-muted-foreground hover:text-primary">
-                            <Calendar className="w-4 h-4" />
-                          </Button>
-                          <Button size="icon" variant="ghost" className="h-8 w-8 text-muted-foreground hover:text-primary">
-                            <MoreHorizontal className="w-4 h-4" />
-                          </Button>
+                        <div className="flex items-center gap-6">
+                          <div className="hidden md:block text-right">
+                            <div className="flex items-center justify-end gap-1 text-xs text-muted-foreground mb-0.5">
+                               Warmth: <span className={cn("font-medium", contact.warmthScore < 50 ? "text-red-500" : "text-green-600")}>{contact.warmthScore}%</span>
+                            </div>
+                            <p className="text-sm font-medium">
+                              {contact.lastInteraction ? new Date(contact.lastInteraction).toLocaleDateString() : 'Never'}
+                            </p>
+                          </div>
+                          
+                          <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                            <Button size="icon" variant="ghost" className="h-8 w-8 text-muted-foreground hover:text-primary">
+                              <Mail className="w-4 h-4" />
+                            </Button>
+                            <Button size="icon" variant="ghost" className="h-8 w-8 text-muted-foreground hover:text-primary">
+                              <Calendar className="w-4 h-4" />
+                            </Button>
+                            <Button size="icon" variant="ghost" className="h-8 w-8 text-muted-foreground hover:text-primary">
+                              <MoreHorizontal className="w-4 h-4" />
+                            </Button>
+                          </div>
                         </div>
                       </div>
-                    </div>
+                    </Link>
                   ))}
                 </div>
               </Card>

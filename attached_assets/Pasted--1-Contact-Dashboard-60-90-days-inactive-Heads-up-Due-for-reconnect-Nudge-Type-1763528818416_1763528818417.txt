@@ -1,0 +1,204 @@
+### **1. Contact Dashboard**
+
+- **60-90 days inactive:** "Heads up: Due for reconnect"
+
+**Nudge Types:**
+
+- Sortable by priority level
+- Up to 3 nudges displayed (filtered by priority)
+- Top priority contacts flagged as "High priority!"
+
+**Trigger Rules:**
+
+**Purpose:** Proactively alert users to relationships that need attention.
+
+- Flame icon with color coding
+
+**Visual Indicators:**
+
+- **Below 50:** Cold, critical attention needed
+- **50-69:** Cooling off, needs attention soon
+- **85-100:** Very warm, recently connected, healthy relationship
+
+**What It Means:**
+
+- **Priority Weighting:** +10 if priority score is 80+
+- **Network Effect:** +5 per mutual connection
+- **Recent Interaction Bonus:** +15 if contact in last 7 days
+- **Time Decay:** -0.5 points per day of inactivity
+- **Base Score:** 100 (starts at maximum)
+
+**Calculation Method:**
+
+### **3. Warmth Scoring Engine**
+
+---
+
+- Schedule coffee chat - Should probs open up an email draft
+- Draft personalized follow-up - LLM
+- Quick action buttons for next steps
+
+**Suggested Follow-ups:**
+
+- Personal notes and context - manual fill in
+- Shared interests (badge display) - this would require an understanding of your interests
+- How you met - LinkedIn, email, eventually you can do event imports so it says which events
+- Location
+- LinkedIn profile link
+- Email with mailto link
+
+**Contact Information:**
+
+- One-click intro draft generation
+- Shared interests highlighting
+- AI-identified mutual connections
+
+**Suggested Introductions:**
+
+- Copy to clipboard functionality
+- Customize and edit drafts
+- Generate introduction templates
+- Generate keep-warm emails
+- Generate follow-up emails
+
+**Email Drafter:**
+
+- Contextual analysis of relationship temperature
+- Warmth drivers breakdown (recency, frequency, priority, network)
+- 30-day warmth trend chart
+
+**Warmth Engine Visualization:**
+
+- Reliability and influence scores
+- Communication style classification
+- Key skills and domains
+- Auto-generated expertise insights
+
+**AI Enrichment Panel:**
+
+- Priority score with visual progress bar
+- Last interaction date and time
+- Warmth score with visual progress bar
+- Name, title, company
+- Avatar with initials
+
+**Header:**
+
+**Sections:**
+
+**Purpose:** Deep dive into a single contact with comprehensive information and AI-powered insights.
+
+### **2. Contact Profile**
+
+---
+
+**Mock Data:** 6 sample contacts across HealthTech, VC, AI/ML, Design, BioTech industries
+
+- Contacts contacted this month
+- Count of top priority contacts (80+ priority score)
+- Number of contacts needing warmth (60+ days inactive)
+- Total contacts count
+
+**Stats Overview:**
+
+- **By Priority:** Highest priority contacts first (VIPs)
+- **By Recent:** Most recently interacted contacts first
+- **By Warmth:** Highest to lowest warmth score (who needs attention most)
+
+**Sorting Options:**
+
+- Quick category badges (Investor, Founder, Advisor, Collaborator)
+- Show days since last interaction
+- Display priority status with star indicator
+- Show warmth score prominently with flame icon
+- Display key contact information: name, title, company, location
+- View all imported contacts in a clean card-based interface
+
+**Capabilities:**
+
+**Purpose:** Central hub to view and manage all contacts with intelligent sorting and filtering.
+
+**Actions Available:**
+
+- "Later" button - Dismisses nudge temporarily
+- X button - Remove nudge from view
+- Orange gradient background (warmth themed)
+- Decorative accent elements
+- Contact name and title in nudge
+
+---
+
+**Purpose:** Give context that’s important for making the outreach personalized, but don’t draft the email for them. Include the context as like guidance. 
+
+**Follow-up Emails:**
+
+- Shows awareness of their work
+- Casual reconnection tone
+- Template: "Thinking of you... saw exciting work at [company]... check in soon"
+
+**Introduction Emails:**
+
+- Introduces two people with shared interests
+- Explains why they should connect
+- Highlights complementary expertise
+- Template: "I'd like to introduce you to [Name]... you should connect"
+
+**Features:**
+
+- Smart personalization based on contact data
+- Subject line generation
+- Editable drafts in text area
+- Copy to clipboard
+- Regenerate functionality for variations
+- Create templates
+
+---
+
+### **6. Advanced Search & Filtering**
+
+**Purpose:** Find exactly the right contacts for any situation.
+
+**Filter Categories:**
+
+**Contact Type (Category):**
+
+- Investor
+- Founder
+- Advisor
+- Collaborator
+
+**Industry:**
+
+- HealthTech
+- AI/ML
+- Venture Capital
+- Design
+- Technology
+- BioTech
+- Configurable slider: 0-365 days
+- Find contacts by recency of interaction
+
+**Behavior:**
+
+- Toggle filters on/off
+- Selected filters highlighted with "default" badge style
+- Results update in real-time
+
+---
+
+### **7. Suggested Introductions**
+
+**Purpose:** Leverage your network by identifying valuable mutual connections.
+
+- Analyzes shared interests between contacts
+- Finds overlap in expertise and industry focus
+- Should also be able to give custom instructions on who you want to meet
+- And up to 3 intros that you should ask that person for
+
+**Information Displayed:**
+
+- Shared interests with original contact
+- "Intro Draft" button for quick template generation
+- Super-connectors can quickly make warm introductions and ask for introductions
+- Reduces friction of finding mutual connections
+- Increases network value for all parties
