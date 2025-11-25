@@ -1,13 +1,13 @@
 import React, { useState } from "react";
 import { Link } from "wouter";
-import { 
-  Search, 
-  Bell, 
-  MapPin, 
-  Calendar, 
-  Mail, 
-  MoreHorizontal, 
-  Filter, 
+import {
+  Search,
+  Bell,
+  MapPin,
+  Calendar,
+  Mail,
+  MoreHorizontal,
+  Filter,
   Sparkles,
   ArrowUpRight,
   Clock,
@@ -17,7 +17,8 @@ import {
   Flame,
   TrendingUp,
   AlertCircle,
-  ChevronDown
+  ChevronDown,
+  Upload
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -34,14 +35,16 @@ import { cn } from "@/lib/utils";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { getWarmthStatus } from "@shared/warmth-engine";
+import { LinkedInImportDialog } from "@/components/linkedin-import-dialog";
 
 export default function Dashboard() {
   const [searchQuery, setSearchQuery] = useState("");
   const [categoryFilter, setCategoryFilter] = useState<string | null>(null);
   const [industryFilter, setIndustryFilter] = useState<string | null>(null);
+  const [showLinkedInImport, setShowLinkedInImport] = useState(false);
   const { toast } = useToast();
 
-  const { data: contacts, isLoading: contactsLoading } = useQuery<Contact[]>({ 
+  const { data: contacts, isLoading: contactsLoading } = useQuery<Contact[]>({
     queryKey: ["/api/contacts", searchQuery, categoryFilter, industryFilter],
     queryFn: () => {
       const params = new URLSearchParams();
@@ -57,7 +60,7 @@ export default function Dashboard() {
     queryFn: () => fetch("/api/stats").then(res => res.json())
   });
 
-  const { data: nudges, isLoading: nudgesLoading } = useQuery<(Nudge & { contact: Contact })[]>({ 
+  const { data: nudges, isLoading: nudgesLoading } = useQuery<(Nudge & { contact: Contact })[]>({
     queryKey: ["/api/nudges"],
     queryFn: () => fetch("/api/nudges").then(res => res.json())
   });
@@ -94,6 +97,7 @@ export default function Dashboard() {
 
   return (
     <div className="min-h-screen bg-[#FAF9F6] flex">
+      <LinkedInImportDialog isOpen={showLinkedInImport} onClose={() => setShowLinkedInImport(false)} />
       {/* Sidebar */}
       <aside className="w-64 border-r border-border/60 bg-[#FAF9F6] hidden lg:flex flex-col fixed h-full z-10">
         <div className="p-6">
@@ -101,7 +105,7 @@ export default function Dashboard() {
             <div className="w-6 h-6 bg-primary rounded-md" />
             <span className="font-serif text-lg font-bold">Maddy AI</span>
           </div>
-          
+
           <div className="space-y-1">
             <Button variant="ghost" className="w-full justify-start font-medium bg-secondary/50 text-secondary-foreground">
               <Sparkles className="mr-2 w-4 h-4" /> Home
@@ -124,13 +128,13 @@ export default function Dashboard() {
             <h4 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-3 px-2">Quick Filters</h4>
             <div className="space-y-1 mt-2">
               {['HealthTech', 'AI/ML', 'Venture Capital'].map((filter) => (
-                <button 
+                <button
                   key={filter}
                   onClick={() => setIndustryFilter(industryFilter === filter ? null : filter)}
                   className={cn(
                     "text-sm px-2 py-1.5 w-full text-left rounded-md transition-colors",
-                    industryFilter === filter 
-                      ? "bg-primary/10 text-primary font-medium" 
+                    industryFilter === filter
+                      ? "bg-primary/10 text-primary font-medium"
                       : "text-muted-foreground hover:text-foreground hover:bg-black/5"
                   )}
                 >
@@ -140,7 +144,7 @@ export default function Dashboard() {
             </div>
           </div>
         </div>
-        
+
         <div className="mt-auto p-6 border-t border-border/60">
           <div className="flex items-center gap-3">
             <Avatar className="h-9 w-9 border border-border">
@@ -159,11 +163,11 @@ export default function Dashboard() {
         {/* Top Header */}
         <header className="h-16 border-b border-border/60 bg-[#FAF9F6]/80 backdrop-blur-sm sticky top-0 z-20 px-6 flex items-center justify-between">
           <div className="lg:hidden font-serif font-bold">Maddy AI</div>
-          
+
           <div className="flex-1 max-w-2xl mx-auto relative hidden md:block">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-            <Input 
-              placeholder="Ask Maddy: 'Who do I know in NYC working on Fintech?'" 
+            <Input
+              placeholder="Ask Maddy: 'Who do I know in NYC working on Fintech?'"
               className="w-full pl-10 bg-white border-border/60 focus-visible:ring-primary/20 shadow-sm"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
@@ -175,14 +179,28 @@ export default function Dashboard() {
               <Bell className="w-5 h-5" />
               <span className="absolute top-2 right-2 w-2 h-2 bg-primary rounded-full" />
             </Button>
-            <Button size="sm" className="rounded-full bg-primary text-primary-foreground hover:bg-primary/90 shadow-md">
-              <UserPlus className="w-4 h-4 mr-2" /> Add Contact
-            </Button>
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button size="sm" className="rounded-full bg-primary text-primary-foreground hover:bg-primary/90 shadow-md">
+                  <UserPlus className="w-4 h-4 mr-2" /> Add Contact
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end">
+                <DropdownMenuItem onClick={() => setShowLinkedInImport(true)}>
+                  <Upload className="w-4 h-4 mr-2" />
+                  Import from LinkedIn
+                </DropdownMenuItem>
+                <DropdownMenuItem>
+                  <UserPlus className="w-4 h-4 mr-2" />
+                  Add Single Contact
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
           </div>
         </header>
 
         <div className="p-6 md:p-8 max-w-6xl mx-auto space-y-8">
-          
+
           {/* Stats Overview */}
           {stats && (
             <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
@@ -225,7 +243,7 @@ export default function Dashboard() {
               <h2 className="font-serif text-2xl font-medium text-foreground">Morning Nudges</h2>
               <span className="text-sm text-muted-foreground">{new Date().toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' })}</span>
             </div>
-            
+
             {nudgesLoading ? (
               <div className="grid md:grid-cols-3 gap-4">
                 {[1, 2, 3].map((i) => (
@@ -237,7 +255,7 @@ export default function Dashboard() {
                 {activeNudges.map((nudge) => {
                   const contact = nudge.contact;
                   if (!contact) return null;
-                  
+
                   return (
                     <motion.div
                       key={nudge.id}
@@ -274,9 +292,9 @@ export default function Dashboard() {
                             {nudge.message}
                           </p>
                           <div className="flex gap-2 opacity-80 group-hover:opacity-100 transition-opacity">
-                            <Button 
-                              size="sm" 
-                              variant="outline" 
+                            <Button
+                              size="sm"
+                              variant="outline"
                               className="w-full text-xs h-8"
                               onClick={() => dismissNudgeMutation.mutate(nudge.id)}
                             >
@@ -296,14 +314,14 @@ export default function Dashboard() {
           {/* Main Content Tabs */}
           <Tabs defaultValue="network" className="space-y-6">
             <TabsList className="bg-transparent border-b border-border/60 w-full justify-start h-auto p-0 rounded-none space-x-6">
-              <TabsTrigger 
-                value="network" 
+              <TabsTrigger
+                value="network"
                 className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:text-primary data-[state=active]:bg-transparent px-0 py-3 font-serif text-lg text-muted-foreground"
               >
                 Your Network
               </TabsTrigger>
-              <TabsTrigger 
-                value="insights" 
+              <TabsTrigger
+                value="insights"
                 className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:text-primary data-[state=active]:bg-transparent px-0 py-3 font-serif text-lg text-muted-foreground"
               >
                 Insights
@@ -317,14 +335,14 @@ export default function Dashboard() {
                     <DropdownMenu>
                       <DropdownMenuTrigger asChild>
                         <Button variant="outline" size="sm" className="h-8 gap-2">
-                          <Filter className="w-3 h-3" /> 
-                          {categoryFilter || "Role"} 
+                          <Filter className="w-3 h-3" />
+                          {categoryFilter || "Role"}
                           <ChevronDown className="w-3 h-3 opacity-50" />
                         </Button>
                       </DropdownMenuTrigger>
                       <DropdownMenuContent align="start">
                         {['Investor', 'Founder', 'Advisor', 'Collaborator'].map(cat => (
-                          <DropdownMenuCheckboxItem 
+                          <DropdownMenuCheckboxItem
                             key={cat}
                             checked={categoryFilter === cat}
                             onCheckedChange={(checked) => setCategoryFilter(checked ? cat : null)}
@@ -334,14 +352,14 @@ export default function Dashboard() {
                         ))}
                       </DropdownMenuContent>
                     </DropdownMenu>
-                    
+
                     <Button variant="outline" size="sm" className="h-8 gap-2">
                       Sort by: <span className="font-medium text-foreground">Warmth</span>
                     </Button>
                   </div>
                   <span className="text-xs text-muted-foreground">{contacts?.length || 0} contacts found</span>
                 </div>
-                
+
                 <div className="divide-y divide-border/40">
                   {contactsLoading ? (
                     <div className="p-8 text-center text-muted-foreground">Loading contacts...</div>
@@ -357,7 +375,7 @@ export default function Dashboard() {
                               {contact.priorityScore > 80 && <div className="w-1.5 h-1.5 bg-white rounded-full" />}
                             </div>
                           </div>
-                          
+
                           <div>
                             <h3 className="font-medium text-foreground flex items-center gap-2">
                               {contact.name}
@@ -377,13 +395,13 @@ export default function Dashboard() {
                         <div className="flex items-center gap-6">
                           <div className="hidden md:block text-right">
                             <div className="flex items-center justify-end gap-1 text-xs text-muted-foreground mb-0.5">
-                               Warmth: <span className={cn("font-medium", contact.warmthScore < 50 ? "text-red-500" : "text-green-600")}>{contact.warmthScore}%</span>
+                              Warmth: <span className={cn("font-medium", contact.warmthScore < 50 ? "text-red-500" : "text-green-600")}>{contact.warmthScore}%</span>
                             </div>
                             <p className="text-sm font-medium">
                               {contact.lastInteraction ? new Date(contact.lastInteraction).toLocaleDateString() : 'Never'}
                             </p>
                           </div>
-                          
+
                           <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
                             <Button size="icon" variant="ghost" className="h-8 w-8 text-muted-foreground hover:text-primary">
                               <Mail className="w-4 h-4" />
@@ -402,7 +420,7 @@ export default function Dashboard() {
                 </div>
               </Card>
             </TabsContent>
-            
+
             <TabsContent value="insights">
               <div className="grid md:grid-cols-2 gap-6">
                 <Card className="bg-secondary/30 border-none">

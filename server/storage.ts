@@ -1,4 +1,4 @@
-import { contacts, nudges, type Contact, type InsertContact, type Nudge, type InsertNudge } from "@shared/schema";
+import { contacts, nudges, userProfile, type Contact, type InsertContact, type Nudge, type InsertNudge, type UserProfile, type InsertUserProfile } from "@shared/schema";
 import { db } from "./db";
 import { eq, desc, and, or, ilike, gte, lt, sql, inArray, isNull } from "drizzle-orm";
 
@@ -7,9 +7,10 @@ export interface IStorage {
   getContacts(filters?: ContactFilters): Promise<Contact[]>;
   getContact(id: number): Promise<Contact | undefined>;
   createContact(contact: InsertContact): Promise<Contact>;
+  createContactsBulk(contacts: InsertContact[]): Promise<{ created: number; skipped: number; failed: number; skippedEmails: string[] }>;
   updateContact(id: number, contact: Partial<InsertContact>): Promise<Contact | undefined>;
   deleteContact(id: number): Promise<void>;
-  
+
   // Stats
   getStats(): Promise<Stats>;
 
@@ -17,7 +18,11 @@ export interface IStorage {
   getNudges(): Promise<(Nudge & { contact: Contact })[]>;
   createNudge(nudge: InsertNudge): Promise<Nudge>;
   updateNudgeStatus(id: number, status: string): Promise<Nudge | undefined>;
-  
+
+  // User Profile
+  getUserProfile(): Promise<UserProfile | undefined>;
+  createOrUpdateUserProfile(profile: InsertUserProfile): Promise<UserProfile>;
+
   // Seed data helper
   seed(): Promise<void>;
 }
@@ -60,13 +65,13 @@ export class DatabaseStorage implements IStorage {
     if (filters?.industry) {
       conditions.push(eq(contacts.industry, filters.industry));
     }
-    
+
     let query = db.select().from(contacts);
-    
+
     if (conditions.length > 0) {
       return await query.where(and(...conditions)).orderBy(desc(contacts.warmthScore));
     }
-    
+
     return await query.orderBy(desc(contacts.warmthScore));
   }
 
@@ -81,6 +86,51 @@ export class DatabaseStorage implements IStorage {
       .values(contact)
       .returning();
     return newContact;
+  }
+
+  async createContactsBulk(contactsToCreate: InsertContact[]): Promise<{ created: number; skipped: number; failed: number; skippedEmails: string[] }> {
+    const skippedEmails: string[] = [];
+    let created = 0;
+    let failed = 0;
+
+    // Get existing emails to check for duplicates (only for contacts with emails)
+    const emails = contactsToCreate
+      .map((c: InsertContact) => c.email)
+      .filter((email): email is string => !!email && email.length > 0);
+
+    let existingEmails = new Set<string>();
+
+    if (emails.length > 0) {
+      const existingContacts = await db.select({ email: contacts.email })
+        .from(contacts)
+        .where(inArray(contacts.email, emails));
+
+      existingContacts.forEach(c => {
+        if (c.email) existingEmails.add(c.email);
+      });
+    }
+
+    // Insert contacts that don't already exist
+    for (const contact of contactsToCreate) {
+      if (contact.email && existingEmails.has(contact.email)) {
+        skippedEmails.push(contact.email);
+        continue;
+      }
+
+      try {
+        await this.createContact(contact);
+        created++;
+      } catch (error) {
+        failed++;
+      }
+    }
+
+    return {
+      created,
+      skipped: skippedEmails.length,
+      failed,
+      skippedEmails
+    };
   }
 
   async updateContact(id: number, contact: Partial<InsertContact>): Promise<Contact | undefined> {
@@ -99,9 +149,9 @@ export class DatabaseStorage implements IStorage {
   async getStats(): Promise<Stats> {
     const now = new Date();
     const firstDayOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
-    
+
     const [total] = await db.select({ count: sql<number>`count(*)` }).from(contacts);
-    
+
     const [thisMonth] = await db.select({ count: sql<number>`count(*)` })
       .from(contacts)
       .where(gte(contacts.lastInteraction, firstDayOfMonth));
@@ -113,7 +163,7 @@ export class DatabaseStorage implements IStorage {
     // Needs warmth: > 60 days since last interaction
     const sixtyDaysAgo = new Date();
     sixtyDaysAgo.setDate(sixtyDaysAgo.getDate() - 60);
-    
+
     const [needsWarmth] = await db.select({ count: sql<number>`count(*)` })
       .from(contacts)
       .where(or(
@@ -134,9 +184,9 @@ export class DatabaseStorage implements IStorage {
       nudge: nudges,
       contact: contacts,
     })
-    .from(nudges)
-    .innerJoin(contacts, eq(nudges.contactId, contacts.id))
-    .orderBy(desc(nudges.priority), desc(nudges.date));
+      .from(nudges)
+      .innerJoin(contacts, eq(nudges.contactId, contacts.id))
+      .orderBy(desc(nudges.priority), desc(nudges.date));
 
     return result.map(row => ({
       ...row.nudge,
@@ -159,6 +209,33 @@ export class DatabaseStorage implements IStorage {
       .where(eq(nudges.id, id))
       .returning();
     return updated;
+  }
+
+  async getUserProfile(): Promise<UserProfile | undefined> {
+    const [profile] = await db.select().from(userProfile).limit(1);
+    return profile;
+  }
+
+  async createOrUpdateUserProfile(profile: InsertUserProfile): Promise<UserProfile> {
+    // Check if profile exists
+    const existing = await this.getUserProfile();
+
+    if (existing) {
+      // Update existing profile
+      const [updated] = await db
+        .update(userProfile)
+        .set({ ...profile, updatedAt: new Date() })
+        .where(eq(userProfile.id, existing.id))
+        .returning();
+      return updated;
+    } else {
+      // Create new profile
+      const [newProfile] = await db
+        .insert(userProfile)
+        .values(profile)
+        .returning();
+      return newProfile;
+    }
   }
 
   async seed(): Promise<void> {
