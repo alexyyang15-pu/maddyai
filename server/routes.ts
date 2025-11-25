@@ -55,6 +55,95 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  app.post("/api/contacts/bulk", async (req, res) => {
+    try {
+      const contacts = req.body;
+      if (!Array.isArray(contacts)) {
+        return res.status(400).json({ message: "Request body must be an array of contacts" });
+      }
+
+      const result = await storage.createContactsBulk(contacts);
+      res.status(201).json(result);
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        res.status(400).json({ message: "Invalid contact data", errors: error.errors });
+      } else {
+        res.status(500).json({ message: "Internal server error" });
+      }
+    }
+  });
+
+  // New LinkedIn ZIP import endpoint
+  app.post("/api/linkedin/import-zip", async (req, res) => {
+    try {
+      // Expect base64 encoded ZIP file in request body
+      const { zipData } = req.body;
+
+      if (!zipData) {
+        return res.status(400).json({ message: "No ZIP data provided" });
+      }
+
+      // Import parser and matcher
+      const { extractZipFiles, parseProfile, parsePositions, parseConnections } = await import("./linkedin-parser");
+      const { addSmartTagsToContacts } = await import("./matcher");
+
+      // Decode base64 and extract files
+      const buffer = Buffer.from(zipData, 'base64');
+      const files = extractZipFiles(buffer);
+
+      let profileData: any = {};
+      let contactsToImport: any[] = [];
+
+      // Parse Profile.csv if available
+      if (files.profile) {
+        profileData = parseProfile(files.profile);
+      }
+
+      // Parse Positions.csv if available
+      if (files.positions) {
+        const positionsData = parsePositions(files.positions);
+        profileData = { ...profileData, ...positionsData };
+      }
+
+      // Save or update user profile
+      let userProfile;
+      if (Object.keys(profileData).length > 0) {
+        userProfile = await storage.createOrUpdateUserProfile(profileData);
+      }
+
+      // Parse Connections.csv if available
+      if (files.connections) {
+        contactsToImport = parseConnections(files.connections);
+
+        // Apply smart matching if we have a user profile
+        if (userProfile) {
+          contactsToImport = addSmartTagsToContacts(userProfile, contactsToImport);
+        }
+      }
+
+      // Import contacts
+      const importResult = contactsToImport.length > 0
+        ? await storage.createContactsBulk(contactsToImport)
+        : { created: 0, skipped: 0, failed: 0, skippedEmails: [] };
+
+      res.status(201).json({
+        ...importResult,
+        profileCreated: !!userProfile,
+        filesProcessed: {
+          profile: !!files.profile,
+          positions: !!files.positions,
+          connections: !!files.connections,
+        },
+      });
+    } catch (error: any) {
+      console.error("LinkedIn ZIP import error:", error);
+      res.status(500).json({
+        message: "Failed to process LinkedIn ZIP file",
+        error: error.message
+      });
+    }
+  });
+
   app.patch("/api/contacts/:id", async (req, res) => {
     const id = parseInt(req.params.id);
     if (isNaN(id)) {
@@ -108,7 +197,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.patch("/api/nudges/:id/status", async (req, res) => {
     const id = parseInt(req.params.id);
     const status = req.body.status;
-    
+
     if (isNaN(id) || !status) {
       return res.status(400).json({ message: "Invalid request" });
     }
